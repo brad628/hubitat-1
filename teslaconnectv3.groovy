@@ -48,6 +48,7 @@
  * also change wait time to be configuratble instead of the now default 2 secs between wake and command issuing. Also 
  * change the default to 10 secs as 2 seems not to work any longer.
  * also add child to the xx function so i can retry commands on an error 408 vehicle unavailable up to 3 times with an exponential backup of the pause time between commands.
+ * bsr - 7/19/22 - Added if (descLog) condition in a few places to enable logging only when desriptive logging is turned on.
  */
 
 import groovy.transform.Field
@@ -311,8 +312,8 @@ private authorizedHttpRequestWithChild(child, Integer attempts, Map options = [:
               {
                long localPauseTime = (pauseTime.toInteger() * attempts) 
                                       
-               log.info "Got Back vehicle unavailable (408) ... Either disconnected or most likely asleep."
-               log.info "Will Issue a Wake command, wait and retry."
+               if (descLog) log.info "Got Back vehicle unavailable (408) ... Either disconnected or most likely asleep."
+               if (descLog) log.info "Will Issue a Wake command, wait and retry."
                
                if (descLog) log.info "Pausing for $localPauseTime seconds between wake and command retry."
                   
@@ -860,8 +861,8 @@ void refreshAccessToken(){
         state.refreshTokenSuccess = false
         Map payload = ["grant_type":teslaBearerTokenGrantType,"refresh_token":currentRefreshToken, "client_id":teslaBearerTokenClientId, "scope":teslaBearerTokenScope]
         try{
-            log.info "Getting updated refresh token and bearer token for access token"
-            log.info "Calling ${teslaBearerTokenEndpoint} with ${payload}"
+            if (descLog) log.info "Getting updated refresh token and bearer token for access token"
+            if (descLog) log.info "Calling ${teslaBearerTokenEndpoint} with ${payload}"
             httpPostJson([uri: teslaBearerTokenEndpoint, body: payload]){ resp ->
                 Integer statusCode = resp.getStatus()
                 if (statusCode == 200) {
