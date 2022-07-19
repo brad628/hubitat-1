@@ -35,14 +35,10 @@
  *
  * bsr 4/15/22 - Add valet mode and tire pressures
  * new version fix misspelling of tpms vs tmps and notice tire pressures were in bar so convert to psi
- * yet another change for tire pressure the descirption of the fields that you had were wrong see below.
- * dev:12122022-04-17 02:01:10.554 pm debugprocessData: [state:online, motion:active, speed:29, vin:5YJ3E1EB9JF117593, thermostatMode:auto, 
- * vehicleState:[presence:not present, lock:locked, odometer:32665.353397, sentry_mode:Off, front_drivers_window:Closed, front_pass_window:Closed, rear_drivers_window:Closed, rear_pass_window:Closed, 
- * valet_mode:Off, tire_pressure_front_left:3.2, tire_pressure_front_right:3.2, tire_pressure_rear_left:3.175, tire_pressure_rear_right:3.15], 
- *
  * add code to handle 0 or null coming back from tire pressures as depending on card/sw either can be returned when not driving
  * add valet mode.
  * v 3.0 released changed method from pause to pauseExecution as pause is only in the apps .. weird.
+ * bsr 7/18/22 - Removed duplicate sendEvents for latitude and longitude, causing duplicate triggers in Rule machine apps. Added if (debug) and if (descLog) throughout to reduced logging unless logging is turned on.
  */
 
 metadata {
@@ -129,7 +125,8 @@ metadata {
        input "fromTime", "time", title: "From", required:false, width: 6, submitOnChange:true
        input "toTime", "time", title: "To", required:false, width: 6 
        input "tempScale", "enum", title: "Display temperature in F or C ?", options: ["F", "C"], required: true, defaultValue: "F" 
-       input "debug", "bool", title: "Turn on Debug Logging?", required:true, defaultValue: false   
+       input "debug", "bool", title: "Turn on Debug Logging?", required:true, defaultValue: false
+       input "descLog", "bool", title: "Enable descriptionText logging", required: true, defaultValue: true
     }
 }
 
@@ -212,7 +209,7 @@ def parse(String description) {
     
 private processData(data) {
 	if(data) {
-    	log.debug "processData: ${data}"
+    	if (debug) log.debug "processData: ${data}"
         
     	sendEvent(name: "state", value: data.state)
         sendEvent(name: "motion", value: data.motion)
@@ -223,7 +220,7 @@ private processData(data) {
         if (data.chargeState) {
             if (debug) log.debug "chargeState = $data.chargeState"
             
-        	sendEvent(name: "battery", value: data.chargeState.battery)
+	    sendEvent(name: "battery", value: data.chargeState.battery)
             sendEvent(name: "batteryRange", value: data.chargeState.batteryRange.toInteger())
             sendEvent(name: "chargingState", value: data.chargeState.chargingState)
             sendEvent(name: "minutes_to_full_charge", value: data.chargeState.minutes_to_full_charge)
@@ -234,21 +231,19 @@ private processData(data) {
         if (data.driveState) {
             if (debug) log.debug "DriveState = $data.driveState"
             
-        	sendEvent(name: "latitude", value: data.driveState.latitude)
-			sendEvent(name: "longitude", value: data.driveState.longitude)
+	    sendEvent(name: "latitude", value: data.driveState.latitude)
+	    sendEvent(name: "longitude", value: data.driveState.longitude)
             sendEvent(name: "method", value: data.driveState.method)
             sendEvent(name: "heading", value: data.driveState.heading)
             sendEvent(name: "lastUpdateTime", value: data.driveState.lastUpdateTime)
-            sendEvent(name: "longitude", value: data.driveState.longitude)
-            sendEvent(name: "latitude", value: data.driveState.latitude)
             //sendEvent(name: "speed", value: data.driveState.speed)
         }
         
         if (data.vehicleState) {
-           if (debug) log.debug "vehicle state = $data.vehicleState"
+            if (debug) log.debug "vehicle state = $data.vehicleState"
             def toPSI  = 14.503773773
             
-        	sendEvent(name: "presence", value: data.vehicleState.presence)
+	    sendEvent(name: "presence", value: data.vehicleState.presence)
             sendEvent(name: "lock", value: data.vehicleState.lock)
             sendEvent(name: "odometer", value: data.vehicleState.odometer.toInteger())
             sendEvent(name: "sentry_mode", value: data.vehicleState.sentry_mode)
@@ -322,62 +317,62 @@ private processData(data) {
 }
 
 def refresh() {
-	log.debug "Executing 'refresh'"
-     def now = new Date().format('MM/dd/yyyy h:mm a',location.timeZone)
-     sendEvent(name: "lastUpdate", value: now, descriptionText: "Last Update: $now")
+	if (debug) log.debug "Executing 'refresh'" // Changed to debug log to reduce logging of every refresh
+    def now = new Date().format('MM/dd/yyyy h:mm a',location.timeZone)
+    sendEvent(name: "lastUpdate", value: now, descriptionText: "Last Update: $now")
    
     def data = parent.refresh(this)
 	processData(data)
 }
 
 def wake() {
-	log.debug "Executing 'wake'"
+	if (descLog) log.info "Executing 'wake'"
 	def data = parent.wake(this)
     processData(data)
     runIn(30, refresh)
 }
 
 def lock() {
-	log.debug "Executing 'lock'"
+	if (descLog) log.info "Executing 'lock'"
 	def result = parent.lock(this)
     if (result) { refresh() }
 }
 
 def unlock() {
-	log.debug "Executing 'unlock'"
+	if (descLog) log.info "Executing 'unlock'"
 	def result = parent.unlock(this)
     if (result) { refresh() }
 }
 
 def auto() {
-	log.debug "Executing 'auto'"
+	if (descLog) log.info "Executing 'auto'"
 	def result = parent.climateAuto(this)
     if (result) { refresh() }
 }
 
 def off() {
-	log.debug "Executing 'off'"
+	if (descLog) log.info "Executing 'off'"
 	def result = parent.climateOff(this)
     if (result) { refresh() }
 }
 
 def heat() {
-	log.debug "Executing 'heat'"
+	if (descLog) log.info "Executing 'heat'"
 	// Not supported
 }
 
 def emergencyHeat() {
-	log.debug "Executing 'emergencyHeat'"
+	if (descLog) log.info "Executing 'emergencyHeat'"
 	// Not supported
 }
 
 def cool() {
-	log.debug "Executing 'cool'"
+	if (descLog) log.info "Executing 'cool'"
 	// Not supported
 }
 
 def setThermostatMode(mode) {
-	log.debug "Executing 'setThermostatMode'"
+	if (descLog) log.info "Executing 'setThermostatMode'"
 	switch (mode) {
     	case "auto":
         	auto()
@@ -391,7 +386,7 @@ def setThermostatMode(mode) {
 }
 
 def setThermostatSetpoint(Number setpoint) {
-	log.debug "Executing 'setThermostatSetpoint with temp scale $tempScale'"
+	if (descLog) log.info "Executing 'setThermostatSetpoint with temp scale $tempScale'"
     if (tempScale == "F")
       {
 	    def result = parent.setThermostatSetpointF(this, setpoint)
@@ -405,38 +400,38 @@ def setThermostatSetpoint(Number setpoint) {
 }
 
 def startCharge() {
-	log.debug "Executing 'startCharge'"
+	if (descLog) log.info "Executing 'startCharge'"
     def result = parent.startCharge(this)
     if (result) { refresh() }
 }
 
 def stopCharge() {
-	log.debug "Executing 'stopCharge'"
+	if (descLog) log.info "Executing 'stopCharge'"
     def result = parent.stopCharge(this)
     if (result) { refresh() }
 }
 
 def openFrontTrunk() {
-	log.debug "Executing 'openFrontTrunk'"
+	if (descLog) log.info "Executing 'openFrontTrunk'"
     def result = parent.openTrunk(this, "front")
     // if (result) { refresh() }
 }
 
 def openRearTrunk() {
-	log.debug "Executing 'openRearTrunk'"
+	if (descLog) log.info "Executing 'openRearTrunk'"
     def result = parent.openTrunk(this, "rear")
     // if (result) { refresh() }
 }
 
 def unlockAndOpenChargePort() {
-	log.debug "Executing 'unock and open charge port'"
+	if (descLog) log.info "Executing 'unock and open charge port'"
     def result = parent.unlockandOpenChargePort(this)
     // if (result) { refresh() }   
 }  
 
 def setChargeLimit(Number Limit)
 {
- log.debug "Executing 'setChargeLimit with limit of $Limit %"
+    if (descLog) log.info "Executing 'setChargeLimit with limit of $Limit %"
 	def result = parent.setChargeLimit(this, Limit)
         if (result) { refresh() }
 }  
@@ -449,43 +444,43 @@ def updated()
 }
 
 def setSeatHeaters(seat,level) {
-	log.debug "Executing 'setSeatheater'"
+	if (descLog) log.info "Executing 'setSeatheater'"
 	def result = parent.setSeatHeaters(this, seat,level)
     if (result) { refresh() }
 }
 
 def sentryModeOn() {
-	log.debug "Executing 'Turn Sentry Mode On'"
+	if (descLog) log.info "Executing 'Turn Sentry Mode On'"
 	def result = parent.sentryModeOn(this)
     if (result) { refresh() }
 }
 
 def sentryModeOff() {
-	log.debug "Executing 'Turn Sentry Mode Off'"
+	if (descLog) log.info "Executing 'Turn Sentry Mode Off'"
 	def result = parent.sentryModeOff(this)
     if (result) { refresh() }
 }
 
 def valetModeOn() {
-	log.debug "Executing 'Turn Valet Mode On'"
+	if (descLog) log.info "Executing 'Turn Valet Mode On'"
 	def result = parent.valetModeOn(this)
     if (result) { refresh() }
 }
 
 def valetModeOff() {
-	log.debug "Executing 'Turn Valet Mode Off'"
+	if (descLog) log.info "Executing 'Turn Valet Mode Off'"
 	def result = parent.valetModeOff(this)
     if (result) { refresh() }
 }
 
 def ventWindows() {
-	log.debug "Executing 'Venting Windows'"
+	if (descLog) log.info "Executing 'Venting Windows'"
 	def result = parent.ventWindows(this)
     if (result) { refresh() }
 }
 
 def closeWindows() {
-	log.debug "Executing 'Close Windows'"
+	if (descLog) log.info "Executing 'Close Windows'"
 	def result = parent.closeWindows(this)
     if (result) { refresh() }
 }
@@ -495,12 +490,12 @@ private farenhietToCelcius(dF) {
 }
 
 def scheduleTokenRefresh() {
-	log.debug "Executing 'sheduleTokenRefresh'"
+	if (descLog) log.info "Executing 'sheduleTokenRefresh'"
     def result = parent.scheduleTokenRefresh(this)
 }
 
 def transitionAccessToken() {
-	log.debug "Executing 'transitioning accessToken to prepare for new teslaAccessToken'"
+	if (descLog) log.info "Executing 'transitioning accessToken to prepare for new teslaAccessToken'"
     def result = parent.transitionAccessToken(this)
 }
 
@@ -519,4 +514,3 @@ def setNextTokenUpdateTime(nextTime)
        sendEvent(name: "nextTokenUpdate", value: nextTime, descriptionText: "Next Token Update: $now")
     }
 }
-        
